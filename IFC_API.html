@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New IFC App API - Developer Documentation</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4, h5, h6 { color: #333; margin-top: 1.5em; }
+        h1 { color: #1a237e; border-bottom: 2px solid #1a237e; padding-bottom: 0.3em;}
+        h2 { color: #283593; border-bottom: 1px solid #c5cae9; padding-bottom: 0.2em;}
+        h3 { color: #3949ab; }
+        h4 { color: #5c6bc0; }
+        code { background-color: #e8eaf6; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; }
+        pre { background-color: #e8eaf6; padding: 10px; border-radius: 5px; overflow-x: auto; border: 1px solid #c5cae9; }
+        pre code { background-color: transparent; padding: 0; border-radius: 0; }
+        ul, ol { margin-left: 20px; }
+        li { margin-bottom: 0.5em; }
+        strong { color: #d81b60; }
+        .critical-limitation { color: #c62828; font-weight: bold; }
+        .api-requirement { color: #2e7d32; font-weight: bold; }
+        .note { background-color: #fff9c4; border-left: 5px solid #fdd835; padding: 10px; margin: 10px 0; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1em; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #e8eaf6; }
+        .toc { background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom:20px; }
+        .toc ul { list-style-type: none; padding-left: 0; }
+        .toc ul li { margin-bottom: 5px; }
+        .toc ul li a { text-decoration: none; color: #0d47a1; }
+        .toc ul li a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>New IFC App API - Developer Documentation</h1>
+        <p><strong>Version:</strong> 1.1</p>
+        <p><strong>Last Updated:</strong> 9 de maio de 2025</p>
+
+        <div class="toc">
+            <h3>Table of Contents</h3>
+            <ul>
+                <li><a href="#introduction">1. Introduction</a>
+                    <ul>
+                        <li><a href="#purpose-of-this-document">1.1 Purpose of this Document</a></li>
+                        <li><a href="#context-existing-scripts-and-need-for-new-api">1.2 Context: Existing Scripts and Need for New API</a></li>
+                    </ul>
+                </li>
+                <li><a href="#authentication">2. Authentication</a></li>
+                <li><a href="#global-configuration">3. Global Configuration (<code>Constantes.gs</code>)</a></li>
+                <li><a href="#analysis-of-existing-scripts--new-api-requirements">4. Analysis of Existing Scripts & New API Requirements</a>
+                    <ul>
+                        <li><a href="#task-management">4.1 Task Management</a></li>
+                        <li><a href="#job-management">4.2 Job Management</a></li>
+                        <li><a href="#activity-management">4.3 Activity Management</a></li>
+                        <li><a href="#ifc-logic---jobnimbus-data-processing">4.4 IFC Logic - JobNimbus Data Processing</a></li>
+                    </ul>
+                </li>
+                <li><a href="#common-helper-functions-in-existing-scripts">5. Common Helper Functions in Existing Scripts</a></li>
+                <li><a href="#cross-cutting-new-api-requirements--best-practices">6. Cross-Cutting New API Requirements & Best Practices</a></li>
+                <li><a href="#error-handling-in-existing-scripts">7. Error Handling in Existing Scripts</a></li>
+                <li><a href="#development-notes-for-existing-scripts">8. Development Notes for Existing Scripts</a></li>
+            </ul>
+        </div>
+
+        <h2 id="introduction">1. Introduction</h2>
+
+        <h3 id="purpose-of-this-document">1.1 Purpose of this Document</h3>
+        <p>Welcome to the developer documentation for the <strong>New IFC App API</strong>. This document provides a comprehensive guide to understanding and utilizing the various Google Apps Scripts designed to interact with the JobNimbus API. These scripts automate data extraction, processing, and synchronization with Google Sheets, streamlining workflows and providing valuable insights.</p>
+
+        <h3 id="context-existing-scripts-and-need-for-new-api">1.2 Context: Existing Scripts and Need for New API</h3>
+        <p>The existing Google Apps Scripts, while functional, demonstrate several inefficiencies, primarily due to heavy reliance on client-side filtering and hardcoded data mappings. This documentation analyzes these existing scripts to inform the design and requirements of a <strong>New IFC App API</strong> that will address these limitations, focusing on efficiency, maintainability, and scalability. The primary goal is to transition logic to server-side operations where possible.</p>
+
+        <h2 id="authentication">2. Authentication</h2>
+        <p>All interactions with the JobNimbus API (both by existing scripts and the proposed New IFC App API) are authenticated using a Bearer Token. The API key is expected to be stored as a Script Property within the Google Apps Script project for the current scripts. The New API will also require a secure method for API key management.</p>
+
+        <p><strong>Fetching the API Key (Current Scripts):</strong></p>
+        <pre><code>const API_KEY = PropertiesService.getScriptProperties().getProperty('JOBNIMBUS_API_KEY');</code></pre>
+        <p>Ensure that the property <code>JOBNIMBUS_API_KEY</code> is correctly set in <code>File > Project properties > Script properties</code>.</p>
+
+        <p><strong>Request Headers (Current Scripts & New API):</strong></p>
+        <p>The standard headers for API requests:</p>
+        <pre><code>const headers = {
+  'Authorization': 'Bearer ' + API_KEY, // API_KEY will be managed by the New API's infrastructure
+  'Accept': 'application/json'
+};
+const options = {
+  'method': 'GET', // Or other methods like POST, PUT, DELETE as needed
+  'headers': headers,
+  'muteHttpExceptions': true // For current scripts; New API will have its own error handling
+};</code></pre>
+
+        <h2 id="global-configuration">3. Global Configuration (<code>Constantes.gs</code>)</h2>
+        <p>Several existing scripts rely on a centralized configuration file, <code>Constantes.gs</code>, for shared constants and mappings. This highlights the need for configurable parameters in the New API.</p>
+
+        <p><strong>Key Constants in <code>Constantes.gs</code> (Illustrative of Current Script Dependencies):</strong></p>
+        <ul>
+            <li><strong><code>JOB_API_ENDPOINT_BASE</code></strong>: Base URL for JobNimbus Jobs API.
+                <ul><li>Example: <code>'https://app.jobnimbus.com/api1/jobs'</code></li></ul>
+            </li>
+            <li><strong><code>API_PAGE_SIZE_JOBS</code></strong>: Default job records per page.
+                <ul><li>Example: <code>1000</code></li></ul>
+            </li>
+            <li><strong><code>OWNER_ID_TO_NAME_MAP</code></strong>: <span class="critical-limitation">Critical Limitation:</span> A hardcoded JavaScript object mapping JobNimbus owner IDs to names. This is a primary candidate for replacement by the New API directly providing names.
+                <ul><li>Structure:
+                    <pre><code>const OWNER_ID_TO_NAME_MAP = {
+  "lm0oe5bffni4ed3iwa1eyj7": "Vanessa Alvarez",
+  // ... more mappings
+};</code></pre>
+                </li></ul>
+            </li>
+            <li><strong><code>DELETED_USER_IDS_SET</code></strong>: Set of ignored user IDs.
+                <ul><li>Structure:
+                    <pre><code>const DELETED_USER_IDS_SET = new Set([
+  "lplkhhhdrpxp8meeo5lna3r", // Garett Larson (inactive)
+  // ... more IDs
+]);</code></pre>
+                </li></ul>
+            </li>
+        </ul>
+
+        <p><strong>Implications for New API:</strong><br>
+        The New API should aim to eliminate the need for such client-side hardcoded mappings by providing all necessary data directly in responses (e.g., including owner names with owner IDs). Configuration parameters (like page size defaults, specific record types if not passed as parameters) should be managed within the API's own configuration.</p>
+
+        <h2 id="analysis-of-existing-scripts--new-api-requirements">4. Analysis of Existing Scripts & New API Requirements</h2>
+        <p>This section details the functionality of existing scripts, their limitations, and the corresponding requirements for the New IFC App API.</p>
+
+        <h3 id="task-management">4.1 Task Management</h3>
+
+        <h4>4.1.1 Existing Script: Fetching and Filtering Tasks</h4>
+        <ul>
+            <li><strong>Script File:</strong> (Assumed from <code>fetchJobNimbusTasks</code> function, e.g., <code>Tasks.gs</code>)</li>
+            <li><strong>Primary Function:</strong> <code>fetchJobNimbusTasks()</code></li>
+            <li><strong>Objective:</strong> Fetches all tasks from JobNimbus, then filters them client-side for incomplete tasks assigned to a predefined list of allowed owners.</li>
+            <li><strong>API Endpoint Used:</strong> <code>/api1/tasks</code> (JobNimbus)</li>
+        </ul>
+        <p><strong>Workflow Summary:</strong></p>
+        <ol>
+            <li>Configuration: <code>TASK_API_ENDPOINT_BASE</code>, <code>TASK_SHEET_NAME</code>, <code>API_PAGE_SIZE_TASKS</code>, <code>ALLOWED_OWNER_IDS_ARRAY</code>, <code>ALLOWED_OWNER_IDS_SET</code>.</li>
+            <li>Pagination: Fetches <em>all</em> tasks.</li>
+            <li>Client-Side Filtering:
+                <ul>
+                    <li><code>task.is_completed === false</code>.</li>
+                    <li>At least one owner ID in <code>task.owners</code> is in <code>ALLOWED_OWNER_IDS_SET</code>. Owner deletion status is ignored.</li>
+                </ul>
+            </li>
+            <li>Data Extraction (<code>extractTaskRowData</code>): Extracts ~11 fields, using <code>OWNER_ID_TO_NAME_MAP</code> for owner names.</li>
+            <li>Output: Writes to Google Sheet.</li>
+        </ol>
+
+        <h4>4.1.2 Current Script Limitations (Tasks)</h4>
+        <ul>
+            <li><span class="critical-limitation">Major Inefficiency:</span> Fetches all tasks from JobNimbus regardless of filters, then filters client-side. This is highly resource-intensive and slow for large datasets.</li>
+            <li><span class="critical-limitation">Hardcoded Owner Mapping:</span> Relies on the manually maintained <code>OWNER_ID_TO_NAME_MAP</code> in <code>Constantes.gs</code> to resolve owner IDs to names. This map can become outdated and is a maintenance burden.</li>
+            <li><strong>Limited Filtering Capability:</strong> The script's filtering logic (incomplete and specific owners) is implemented client-side.</li>
+        </ul>
+
+        <h4>4.1.3 New API Requirements (<code>/tasks</code> endpoint)</h4>
+        <ul>
+            <li><span class="api-requirement">Crucial: Server-Side Filtering:</span>
+                <ul>
+                    <li>By completion status: e.g., <code>GET /tasks?is_completed=false</code></li>
+                    <li>By owner IDs (any match): e.g., <code>GET /tasks?any_owner_id=id1,id2,id3</code> (or a similar mechanism for multiple IDs).</li>
+                    <li>Combine filters: e.g., <code>GET /tasks?is_completed=false&any_owner_id=id1,id2</code></li>
+                </ul>
+            </li>
+            <li><span class="api-requirement">Essential: Return Owner Names:</span> The API response for each task must include owner objects containing both their ID and name (e.g., <code>owners: [{id: "xyz", name: "John Doe"}, ...]</code>) to eliminate client-side mapping.</li>
+            <li><strong>Data Fields:</strong> Return all relevant task fields currently extracted by <code>extractTaskRowData</code> (Task ID, Title, Description, Date Created, Created By Name, Date Start, Date End, Related Job ID, Record Type Name, Is Completed?, Date Updated, Related Contact, etc.).</li>
+            <li><strong>Pagination:</strong> Implement standard, robust pagination (e.g., using <code>offset</code>/<code>limit</code> or cursor-based).</li>
+        </ul>
+
+        <h4>4.1.4 Existing Script: Fetching Enriched Tasks with Related Activities</h4>
+         <ul>
+            <li><strong>Script File:</strong> (Assumed from <code>fetchTasksAndRelatedActivities</code> function, e.g., <code>EnrichedTasks.gs</code>)</li>
+            <li><strong>Primary Function:</strong> <code>fetchTasksAndRelatedActivities()</code></li>
+            <li><strong>Objective:</strong> Fetches tasks, filters them, and for tasks with a Job ID, fetches related activities (status changes). Combines task and activity data.</li>
+            <li><strong>API Endpoints Used:</strong> <code>/api1/tasks</code>, <code>/api1/activities</code> (JobNimbus)</li>
+        </ul>
+        <p><strong>Workflow Summary:</strong></p>
+        <ol>
+            <li>Fetches and filters tasks similarly to <code>fetchJobNimbusTasks</code>.</li>
+            <li>For each relevant task with a <code>relatedJobId</code>, calls <code>fetchActivitiesForJobId</code>.</li>
+            <li><code>fetchActivitiesForJobId</code> uses a server-side filter for activities: <code>is_status_change: true</code>, <code>related.id: jobId</code>, <code>related.type: "job"</code>.</li>
+            <li>Combines task data (from <code>extractEnrichedTaskInfo</code>) and activity data (from <code>extractActivityInfoRow</code>).</li>
+        </ol>
+
+        <h4>4.1.5 Current Script Limitations (Enriched Tasks)</h4>
+        <ul>
+            <li><span class="critical-limitation">Task Fetching Inefficiency:</span> Inherits the inefficiency of fetching all tasks before client-side filtering from the basic task script.</li>
+            <li><span class="critical-limitation">Hardcoded Owner Mapping:</span> Still relies on <code>OWNER_ID_TO_NAME_MAP</code>.</li>
+            <li><strong>Sequential Activity Fetching:</strong> Fetches activities per Job ID, which can lead to many small API calls if many tasks are processed.</li>
+        </ul>
+
+        <h4>4.1.6 New API Requirements (Considerations for Enriched Task Data)</h4>
+        <ul>
+            <li>The <code>/tasks</code> endpoint improvements (server-side filtering, owner names) will benefit this use case.</li>
+            <li>Consider if the New API could offer an "enriched" task view or an option to "include_activities" (e.g., <code>GET /tasks/{id}?include_activities=status_changes</code>) to reduce chattiness, though this might be complex.</li>
+            <li>Alternatively, the improved <code>/activities</code> endpoint (see section 4.3.3) used in conjunction with efficiently fetched tasks would be the primary solution.</li>
+        </ul>
+
+        <h3 id="job-management">4.2 Job Management</h3>
+
+        <h4>4.2.1 Existing Script: Fetching Active Jobs</h4>
+        <ul>
+            <li><strong>Script File:</strong> (Assumed from <code>fetchActiveJobNimbusJobs</code> function, e.g., <code>ActiveJobs.gs</code>)</li>
+            <li><strong>Primary Function:</strong> <code>fetchActiveJobNimbusJobs()</code></li>
+            <li><strong>Objective:</strong> Fetches "ACTIVE JOBS" using a server-side filter for <code>record_type_name</code>. Calculates "Days In Status" client-side.</li>
+            <li><strong>API Endpoint Used:</strong> <code>/api1/jobs</code> (JobNimbus)</li>
+        </ul>
+        <p><strong>Workflow Summary:</strong></p>
+        <ol>
+            <li>Configuration: <code>JOB_SHEET_NAME</code>, <code>TARGET_RECORD_TYPE_NAME="ACTIVE JOBS"</code>.</li>
+            <li>Pagination with Server-Side Filter: <code>{"must":[{"term":{"record_type_name": "ACTIVE JOBS"}}]}</code>. Client-side verification is also performed.</li>
+            <li>Data Extraction: Extracts ~10 fields. "Days In Status" is calculated as <code>current_date - job.date_status_change</code>. Uses <code>OWNER_ID_TO_NAME_MAP</code>.</li>
+        </ol>
+
+        <h4>4.2.2 Current Script Limitations (Active Jobs)</h4>
+        <ul>
+            <li><strong>Client-Side Calculation:</strong> "Days In Status" is calculated client-side.</li>
+            <li><span class="critical-limitation">Hardcoded Owner Mapping:</span> Relies on <code>OWNER_ID_TO_NAME_MAP</code>.</li>
+        </ul>
+
+        <h4>4.2.3 New API Requirements (<code>/jobs</code> endpoint)</h4>
+        <ul>
+            <li><span class="api-requirement">Server-Side Filtering:</span>
+                <ul>
+                    <li>By job type (record type name): e.g., <code>GET /jobs?type=ACTIVE%20JOBS</code> (ensure proper URL encoding for spaces).</li>
+                </ul>
+            </li>
+            <li><span class="api-requirement">Essential: Return Owner Names:</span> Directly include owner names with IDs in the response.</li>
+            <li><span class="api-requirement">Recommended: Server-Side <code>days_in_status</code>:</span> The API should calculate and return <code>days_in_status</code> directly in the response. This requires access to <code>date_status_change</code> and the current date on the server.</li>
+            <li><strong>Data Fields:</strong> Return other relevant job fields (Date Created, Name, Status, Sales Rep, Job ID, Date Status Changed, Date Updated, etc.).</li>
+            <li><strong>Pagination:</strong> Standard pagination.</li>
+        </ul>
+
+        <h4>4.2.4 Existing Scripts: Fetching Membership Program & Client For Life Jobs</h4>
+        <ul>
+            <li><strong>Script Files:</strong> <code>WorkspaceMembershipProgram.gs</code>, <code>WorkspaceClientForLife.gs</code></li>
+            <li><strong>Primary Functions:</strong> <code>fetchMembershipProgramJobs()</code>, <code>fetchClientForLifeJobs()</code></li>
+            <li><strong>Objective:</strong> Fetch jobs of specific record types ("MEMBERSHIP PROGRAM", "CLIENT FOR LIFE") with detailed fields.</li>
+            <li><strong>API Endpoint Used:</strong> <code>/api1/jobs</code> (JobNimbus)</li>
+        </ul>
+        <p><strong>Workflow Summary:</strong></p>
+        <ul>
+            <li>Similar to "Active Jobs" but targets different <code>TARGET_RECORD_TYPE_NAME</code>.</li>
+            <li>Extracts a larger set of fields (~18), including <code>Description</code>, <code>Roof Install Date:</code>, and detailed address/contact information (with multiple fallbacks for field names).</li>
+        </ul>
+
+        <h4>4.2.5 Current Script Limitations (Specific Job Types)</h4>
+        <ul>
+            <li>Inherits <span class="critical-limitation">hardcoded owner mapping</span>.</li>
+            <li><strong>Complex client-side logic</strong> for finding address/contact fields due to potential variations in JobNimbus field naming or data structure (e.g., <code>job.address_line1</code> vs <code>job.street1</code>, checking <code>primary_contact</code> vs custom fields).</li>
+        </ul>
+
+        <h4>4.2.6 New API Requirements (Considerations for Specific Job Types)</h4>
+        <ul>
+            <li>The generic <code>/jobs</code> endpoint with type filtering should cover fetching these.</li>
+            <li><span class="api-requirement">Standardized Contact/Address Fields:</span> The API should ideally expose primary contact and address information through a consistent, well-defined structure in the response to simplify client-side parsing. For example:
+                <pre><code>{
+  "jnid": "job123",
+  // ... other job fields
+  "primary_contact_details": {
+    "name": "Jane Doe",
+    "email": "jane.doe@example.com",
+    "phone": "555-1234"
+  },
+  "address_details": {
+    "line1": "123 Main St",
+    "line2": "Apt 4B",
+    "city": "Anytown",
+    "state": "CA",
+    "zip": "90210"
+  }
+}</code></pre>
+            </li>
+            <li>Ensure all currently extracted fields (Description, Roof Install Date, etc.) are available.</li>
+        </ul>
+
+        <h3 id="activity-management">4.3 Activity Management</h3>
+
+        <h4>4.3.1 Existing Script: Fetching and Filtering Job Activities</h4>
+        <ul>
+            <li><strong>Script File:</strong> (Assumed from <code>fetchAndFilterJobNimbusActivities</code> function, e.g., <code>Activities.gs</code>)</li>
+            <li><strong>Primary Function:</strong> <code>fetchAndFilterJobNimbusActivities()</code></li>
+            <li><strong>Objective:</strong> Fetches activities, filtering them client-side against a list of Job IDs read from another sheet, and by <code>is_active</code> / <code>is_archived</code> status.</li>
+            <li><strong>API Endpoint Used:</strong> <code>/api1/activities</code> (JobNimbus)</li>
+        </ul>
+        <p><strong>Workflow Summary:</strong></p>
+        <ol>
+            <li>Reads "Active Job IDs" from the 'Active Jobs API' sheet.</li>
+            <li>Fetches activities using pagination with a server-side filter for <code>is_status_change: true</code>.</li>
+            <li>Client-Side Filtering:
+                <ul>
+                    <li>Related to one of the Job IDs from the sheet.</li>
+                    <li><code>activity.is_active === true</code>.</li>
+                    <li><code>activity.is_archived === false</code>.</li>
+                </ul>
+            </li>
+            <li>Dynamic Column Discovery: Headers are determined by unique keys in filtered data.</li>
+            <li>Output: Writes to Google Sheet in batches.</li>
+        </ol>
+
+        <h4>4.3.2 Current Script Limitations (Activities)</h4>
+        <ul>
+            <li><span class="critical-limitation">Critical Dependency:</span> Relies on reading Job IDs from another script's output sheet. This creates a fragile, inter-script dependency.</li>
+            <li><span class="critical-limitation">Inefficient Client-Side Filtering:</span> Fetches activities (potentially many, even with <code>is_status_change</code> filter) and then filters by Job ID, active, and archived status on the client.</li>
+            <li><strong>Dynamic Columns:</strong> While flexible, dynamically generated columns can be difficult for downstream consumers of the Google Sheet to rely on, as the schema can change.</li>
+            <li><strong>Potential 10k Limit:</strong> The script notes a potential 10k record limit for activities, even with server-side filters.</li>
+        </ul>
+
+        <h4>4.3.3 New API Requirements (<code>/activities</code> endpoint)</h4>
+        <ul>
+            <li><span class="api-requirement">Crucial: Job ID List Parameter:</span> Accept a list of Job IDs as an input parameter to filter activities server-side.
+                <ul><li>e.g., <code>GET /activities?job_id=id1,id2,id3</code> (or using a POST request with a JSON body if the list is very long).</li></ul>
+            </li>
+            <li><span class="api-requirement">Crucial: Server-Side Filtering:</span>
+                <ul>
+                    <li>By the provided <code>job_id</code> list.</li>
+                    <li>By active status: e.g., <code>GET /activities?is_active=true</code></li>
+                    <li>By archived status: e.g., <code>GET /activities?is_archived=false</code></li>
+                    <li>By other relevant fields like <code>is_status_change</code> if needed: e.g., <code>GET /activities?is_status_change=true</code></li>
+                </ul>
+            </li>
+            <li><span class="api-requirement">Consistent JSON Structure:</span> Return a well-defined, consistent JSON structure for activities, including all key fields (Activity ID, Date Created, Date Updated, Note/Content, Type, Is Active, Is Archived, Is Status Change, Related Job ID, Creator Info (ID and Name)).</li>
+            <li><strong>Pagination:</strong> Standard pagination.</li>
+        </ul>
+
+        <h3 id="ifc-logic---jobnimbus-data-processing">4.4 IFC Logic - JobNimbus Data Processing</h3>
+
+        <h4>4.4.1 Existing Script Functionality (JobNimbus Parts)</h4>
+        <ul>
+            <li><strong>Script File:</strong> (Assumed from <code>runFullIFCProcess</code> function, e.g., <code>IFC_Logic.gs</code>)</li>
+            <li><strong>Key JobNimbus Function:</strong> <code>fetchAllJobNimbusData_(apiKey)</code></li>
+            <li><strong>Objective:</strong> Fetches all JobNimbus jobs. The broader <code>processIFCLogic_</code> then uses this data to identify "Root Contracts" (based on status like 'SIGNED') and "Derived Inspections" (status 'INSPECTED'), attempting to link them via explicit custom fields/tags or proximity.</li>
+        </ul>
+
+        <h4>4.4.2 Current Script Limitations (IFC Logic)</h4>
+        <ul>
+            <li><span class="critical-limitation">Fetches All Jobs:</span> <code>fetchAllJobNimbusData_</code> retrieves all jobs, which is inefficient if only specific types or statuses are needed for the IFC logic.</li>
+            <li><strong>Client-Side Logic:</strong> All complex linking logic (root/derived identification, explicit linking checks, proximity calculations) is performed client-side after fetching bulk data.</li>
+            <li><strong>Hardcoded Criteria:</strong> Statuses for root contracts, custom field names for explicit links (<code>cf_ifc_origin_jnid</code>), and tag prefixes are hardcoded.</li>
+        </ul>
+
+        <h4>4.4.3 New API Requirements (Considerations for IFC Logic Support)</h4>
+        <ul>
+            <li>The improved <code>/jobs</code> endpoint (with server-side filtering by type, status, and potentially custom fields if the JobNimbus API supports it) would be foundational.</li>
+            <li><strong>Custom Field Filtering:</strong> If the underlying JobNimbus API allows filtering by custom field values (e.g., <code>GET /jobs?custom_field_cf_ifc_origin_jnid=some_value</code>), this could help optimize fetching explicitly linked items.</li>
+            <li><strong>Tag Filtering:</strong> Similarly, server-side filtering by tags, if available.</li>
+            <li><strong>Proximity/Geo-Spatial Queries:</strong> True server-side proximity linking is a complex feature. If the JobNimbus API offers geo-spatial query capabilities (e.g., "find jobs within X meters of point Y created after date Z"), it would be a significant enhancement. Otherwise, proximity logic will likely remain client-side, but it can operate on more efficiently pre-filtered datasets.</li>
+            <li>The New IFC App API might not replicate the entire IFC logic itself but should provide the necessary performant endpoints and data to enable a more efficient client (like an updated Apps Script or another application) to perform this logic.</li>
+        </ul>
+
+        <h2 id="common-helper-functions-in-existing-scripts">5. Common Helper Functions in Existing Scripts</h2>
+        <p>This section describes helper functions used in the current scripts. The New API should aim to reduce the need for some of these on the client-side.</p>
+
+        <h3 id="writedatatosheetgeneric">5.1 <code>writeDataToSheetGeneric</code></h3>
+        <ul>
+            <li><strong>Purpose:</strong> Writes 2D array data to a Google Sheet.</li>
+            <li><strong>Relevance to New API:</strong> The New API's consumers might still use similar functions to output data, but the data itself will be more refined.</li>
+        </ul>
+
+        <h3 id="date-parsing-and-formatting">5.2 Date Parsing and Formatting</h3>
+        <ul>
+            <li><strong>Current:</strong> Scripts handle Unix timestamp conversion and date formatting.</li>
+            <li><strong>New API:</strong> Should return dates in a standard ISO 8601 format (e.g., <code>YYYY-MM-DDTHH:mm:ssZ</code>) to simplify client-side parsing.</li>
+        </ul>
+
+        <h3 id="getactivejobids">5.3 <code>getActiveJobIds</code></h3>
+        <ul>
+            <li><strong>Current:</strong> Reads Job IDs from one sheet to be used as a filter for another script.</li>
+            <li><strong>New API:</strong> This function's necessity should be eliminated by the <code>/activities</code> endpoint accepting a list of Job IDs directly (see 4.3.3).</li>
+        </ul>
+
+        <h3 id="calculatedistance_">5.4 <code>calculateDistance_</code></h3>
+        <ul>
+            <li><strong>Current:</strong> Used for client-side proximity calculations in IFC logic.</li>
+            <li><strong>New API:</strong> If the JobNimbus API doesn't support server-side geo-queries, this logic might remain client-side. The New API's role would be to provide the geo-coordinate data efficiently.</li>
+        </ul>
+
+        <h2 id="cross-cutting-new-api-requirements--best-practices">6. Cross-Cutting New API Requirements & Best Practices</h2>
+        <p>These are overarching principles for the New IFC App API design.</p>
+
+        <h3 id="server-side-filtering-critical">6.1 Server-Side Filtering (Critical)</h3>
+        <p>This is the most important improvement. The New API <strong>must</strong> implement robust server-side filtering for all relevant entities (Tasks, Jobs, Activities) based on common query parameters (status, type, IDs, dates, custom fields if possible). This will drastically reduce data transfer and client-side processing.</p>
+
+        <h3 id="consistent-data-structures">6.2 Consistent Data Structures</h3>
+        <p>The API should return data in a well-defined, consistent JSON structure for each endpoint. Avoid dynamic field generation in responses. Consumers should be able to rely on a stable schema.</p>
+
+        <h3 id="direct-data-provision-eg-owner-names">6.3 Direct Data Provision (e.g., Owner Names)</h3>
+        <p>Eliminate the need for client-side mapping by including related data directly. For instance, if a task has an owner, the owner's name should be returned alongside their ID within the task object. The same applies to creator information for activities, primary contact details for jobs, etc.</p>
+
+        <h3 id="standardized-pagination">6.4 Standardized Pagination</h3>
+        <p>Implement a consistent and clear pagination strategy across all endpoints (e.g., <code>offset</code>/<code>limit</code>, <code>page</code>/<code>per_page</code>, or cursor-based).</p>
+
+        <h3 id="robust-error-handling-for-api-consumers">6.5 Robust Error Handling for API Consumers</h3>
+        <p>The API should use standard HTTP status codes for errors and provide clear, informative error messages in the response body (e.g., JSON format detailing the error).</p>
+
+        <h2 id="error-handling-in-existing-scripts">7. Error Handling in Existing Scripts</h2>
+        <p>The existing scripts use:</p>
+        <ul>
+            <li><code>muteHttpExceptions: true</code> with <code>UrlFetchApp.fetch</code>.</li>
+            <li><code>try...catch</code> blocks.</li>
+            <li><code>Logger.log()</code> for debugging.</li>
+            <li>API key and global constant checks.</li>
+            <li>UI feedback (<code>alert</code>/<code>toast</code>).</li>
+        </ul>
+        <p><strong>New API Implication:</strong> The New API will have its own server-side error handling and will communicate errors to clients via HTTP status codes and response bodies.</p>
+
+        <h2 id="development-notes-for-existing-scripts">8. Development Notes for Existing Scripts</h2>
+        <ul>
+            <li><strong>API Rate Limits:</strong> Current scripts use <code>Utilities.sleep()</code>. The New API will need its own rate-limiting strategy if it acts as a proxy or aggregator.</li>
+            <li><strong>JobNimbus API Documentation:</strong> Essential reference for understanding available fields and filtering capabilities that the New API can leverage.</li>
+        </ul>
+        <hr>
+        <p class="note">This HTML document is an attempt to provide the documentation in a more robust format for viewing and potential copying if direct export features are problematic.</p>
+    </div>
+</body>
+</html>
